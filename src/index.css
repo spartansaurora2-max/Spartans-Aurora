@@ -1,0 +1,43 @@
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Hanken+Grotesk:wght@400;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-anton: "Anton", sans-serif;
+  --font-hanken: "Hanken Grotesk", sans-serif;
+
+  --color-brand-red: #ff5540;
+  --color-brand-black: #131313;
+  --color-surface-container: #1f1f1f;
+
+  --font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Anton", sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-[#131313] text-[#e2e2e2] selection:bg-[#ff5540] selection:text-white;
+    background-image: radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+}
+
+@layer components {
+  .glass-card {
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .hard-shadow-red {
+    box-shadow: 4px 4px 0px 0px #ff5540;
+  }
+
+  .hard-shadow-white {
+    box-shadow: 4px 4px 0px 0px #ffffff;
+  }
+
+  .court-grit {
+    background-image: radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+}
