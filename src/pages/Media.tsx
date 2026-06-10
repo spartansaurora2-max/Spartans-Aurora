@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 
 type VideoItem = {
   id: string;
@@ -32,6 +33,7 @@ const DEFAULT_VIDEO_ITEMS: VideoItem[] = [
 ];
 
 export default function Media() {
+  const { user } = useAuth();
   const [videos, setVideos] = useState<VideoItem[]>(DEFAULT_VIDEO_ITEMS);
   const [current, setCurrent] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -107,9 +109,11 @@ export default function Media() {
       </section>
 
       <section className="mb-12 flex flex-wrap gap-4 items-center">
-        <button className="bg-[#ffb4a8] text-[#690100] font-sans font-bold text-sm tracking-widest px-6 py-3 uppercase">All Footage</button>
-        <button className="bg-black border border-white/40 text-white font-sans font-bold text-sm tracking-widest px-6 py-3 uppercase hover:bg-white hover:text-black transition-all">Game Day</button>
-        <button className="bg-black border border-white/40 text-white font-sans font-bold text-sm tracking-widest px-6 py-3 uppercase hover:bg-white hover:text-black transition-all">Practice</button>
+        <button className="bg-[#ffb4a8] text-[#690100] font-sans font-bold text-sm tracking-widest px-6 py-3 uppercase">Latest Games</button>
+        <button className="bg-black border border-white/40 text-white font-sans font-bold text-sm tracking-widest px-6 py-3 uppercase hover:bg-white hover:text-black transition-all">Photos</button>
+        {user && (
+          <button className="bg-black border border-white/40 text-white font-sans font-bold text-sm tracking-widest px-6 py-3 uppercase hover:bg-white hover:text-black transition-all">Practice</button>
+        )}
         <div className="ml-auto flex items-center gap-2 text-[#ebbbb4]/70">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="21" x2="14" y1="4" y2="4"/><line x1="21" x2="10" y1="8" y2="8"/><line x1="21" x2="16" y1="12" y2="12"/><line x1="2" x2="3" y1="4" y2="4"/><line x1="2" x2="5" y1="8" y2="8"/><line x1="2" x2="8" y1="12" y2="12"/><line x1="2" x2="20" y1="16" y2="16"/><line x1="2" x2="20" y1="20" y2="20"/></svg>
           <span className="font-sans font-bold text-xs tracking-widest uppercase">Latest First</span>

@@ -1,9 +1,12 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "motion/react";
+import { LogOut } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 
 export default function Navbar() {
   const location = useLocation();
+  const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const navLinks = [
@@ -44,6 +47,31 @@ export default function Navbar() {
                 {link.name}
               </Link>
             ))}
+            {user ? (
+              <div className="flex items-center gap-3">
+                <span className="font-display text-lg text-[#ffb4a8] uppercase tracking-tight">
+                  {user.name}
+                </span>
+                <button
+                  type="button"
+                  onClick={logout}
+                  className="flex items-center gap-1.5 font-sans font-bold text-sm tracking-widest uppercase text-[#e2e2e2] hover:text-[#ff5540] transition-colors active:scale-95"
+                >
+                  <LogOut size={16} /> Logout
+                </button>
+              </div>
+            ) : (
+              <Link
+                to="/login"
+                className={`font-sans font-bold text-sm tracking-widest uppercase transition-all active:scale-95 duration-200 ${
+                  location.pathname === "/login"
+                    ? "text-[#ffb4a8] border-b-2 border-[#ffb4a8] pb-1"
+                    : "text-[#e2e2e2] hover:text-[#ffb4a8]"
+                }`}
+              >
+                Login
+              </Link>
+            )}
           </div>
         </div>
       </div>
@@ -64,6 +92,35 @@ export default function Navbar() {
                 {link.name}
               </Link>
             ))}
+            {user ? (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-white/10 mt-1">
+                <span className="font-display text-lg text-[#ffb4a8] uppercase tracking-tight">
+                  {user.name}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    logout();
+                    setMobileOpen(false);
+                  }}
+                  className="flex items-center gap-1.5 font-sans font-bold text-sm tracking-widest uppercase text-[#e2e2e2] hover:text-[#ff5540] transition-colors"
+                >
+                  <LogOut size={16} /> Logout
+                </button>
+              </div>
+            ) : (
+              <Link
+                to="/login"
+                onClick={() => setMobileOpen(false)}
+                className={`font-sans font-bold text-sm tracking-widest uppercase transition-all active:scale-95 duration-200 px-4 py-3 rounded-xl ${
+                  location.pathname === "/login"
+                    ? "bg-[#ffb4a8]/10 text-[#ffb4a8]"
+                    : "text-[#e2e2e2] hover:bg-white/10 hover:text-[#ffb4a8]"
+                }`}
+              >
+                Login
+              </Link>
+            )}
           </div>
         </div>
       )}

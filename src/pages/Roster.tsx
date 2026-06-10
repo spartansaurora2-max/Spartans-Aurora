@@ -3,17 +3,17 @@ import { motion } from "motion/react";
 export default function Roster() {
   const players = [
     {
-      id: "03",
-      name: "Aryan V.",
+      id: "2025",
+      name: "Team",
       role: "FORWARD",
-      height: "6'1\"",
+      height: "5'9\"",
       rating: "88%",
       agility: "92",
       image: "https://lh3.googleusercontent.com/aida-public/AB6AXuDG_ivYDVsvS7laytCPKDdxSe08SjfTFlOubKrwu6VfE5Kn14he-3JDgZa3lcpfTU-yMjo_m6eAX3LDVqDRdTGRsbwXq3hey842Rs_ev_G7yh1LR0uRq08ck9Keq8VGhSKYpqSfn2pfP4qw4FxhimiEeSPvx4wangTb3y95JKT5aZU0qzrGgE4BxPmFFfwXIgEkjLUMCe_pr0L0AT_uJ7SyzGNH2LchtXBJV34Ec5x6QAiGS9XOfYGgY_WbHSfuIvmDCuju696Eto8"
     },
     {
-      id: "18",
-      name: "Leo H.",
+      id: "2026",
+      name: "Buddys",
       role: "GUARD",
       height: "5'9\"",
       rating: "91%",
@@ -22,7 +22,7 @@ export default function Roster() {
       image: "https://lh3.googleusercontent.com/aida-public/AB6AXuAs8LRHTlvs8ordDl2P1sdwEH_dCkvXfz2QnEHKNTsnoEqfAroXOLciiyPeiCNz8xvPa0om7yJT_Cx0FnchSNZ1_ysTdswcpyMxbm4TJaF04dZBsyvGQcmhfIN8kK3wpLokd04kwvVFfY88wooE7FadUxKDP3GEovI2BAT2uaG5S06GD2OmvomkjCYWlP3vLPvRkd3FzYJhhV6jdee5dT2oWwsLihoOTVOT-vX1DRwS1LxNjYaHJy7Czkm4TcA37Hfv_fBhLk6Q87Q"
     },
     {
-      id: "TEAM",
+      id: "Coach",
       name: "Squad Alpha",
       role: "UNIT",
       height: "ACTIVE",
