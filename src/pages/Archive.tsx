@@ -44,8 +44,8 @@ export default function Archive() {
 
   useEffect(() => {
     const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY;
-    const channelId = import.meta.env.VITE_YOUTUBE_CHANNEL_ID;
-    if (!apiKey || !channelId) {
+    const playlistId = import.meta.env.VITE_YT_GAMES_PLAYLIST_ID;
+    if (!apiKey || !playlistId) {
       return;
     }
 
@@ -53,48 +53,68 @@ export default function Archive() {
     setLoading(true);
     setFetchError("");
 
-    fetch(
-      `https://www.googleapis.com/youtube/v3/search?key=${apiKey}&channelId=${channelId}&part=snippet&order=date&maxResults=12&type=video`
-    )
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error(`YouTube API error: ${response.status}`);
-        }
+    // Pull every page of the "Basketball Game" playlist, newest first.
+    (async () => {
+      const collected: any[] = [];
+      let pageToken = "";
+      do {
+        const url =
+          `https://www.googleapis.com/youtube/v3/playlistItems?key=${apiKey}` +
+          `&playlistId=${playlistId}&part=snippet,contentDetails&maxResults=50` +
+          (pageToken ? `&pageToken=${pageToken}` : "");
+        const response = await fetch(url);
         const data = await response.json();
-        if (canceled) return;
-
-        const items = data.items
-          ?.map((item: any) => {
-            const snippet = item.snippet;
-            const videoId = item.id?.videoId;
-            if (!snippet || !videoId) return null;
-            const publishedAt = snippet.publishedAt
-              ? new Date(snippet.publishedAt)
-              : null;
-            return {
-              videoId,
-              title: snippet.title,
-              views: "YouTube upload",
-              date: publishedAt
-                ? publishedAt.toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })
-                : "",
-              duration: "Video",
-              image:
-                snippet.thumbnails?.high?.url || snippet.thumbnails?.default?.url || "",
-            };
-          })
-          .filter(Boolean) as PastFilm[];
-
-        if (items?.length) {
-          setPastFilms(items);
-        } else {
-          setFetchError("No YouTube videos found for the configured channel.");
+        if (!response.ok) {
+          throw new Error(data.error?.message || `YouTube API error: ${response.status}`);
         }
-      })
+        collected.push(...(data.items || []));
+        pageToken = data.nextPageToken || "";
+      } while (pageToken);
+
+      const items = collected
+        .map((item: any) => {
+          const snippet = item.snippet;
+          const videoId = snippet?.resourceId?.videoId;
+          if (!snippet || !videoId) return null;
+          if (snippet.title === "Private video" || snippet.title === "Deleted video") {
+            return null;
+          }
+          const rawDate = item.contentDetails?.videoPublishedAt || snippet.publishedAt;
+          const publishedAt = rawDate ? new Date(rawDate) : null;
+          const image =
+            snippet.thumbnails?.maxres?.url ||
+            snippet.thumbnails?.high?.url ||
+            snippet.thumbnails?.medium?.url ||
+            snippet.thumbnails?.default?.url ||
+            "";
+          if (!image) return null;
+          return {
+            videoId,
+            title: snippet.title,
+            views: "YouTube upload",
+            date: publishedAt
+              ? publishedAt.toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })
+              : "",
+            duration: "Video",
+            image,
+            _sort: rawDate || "",
+          };
+        })
+        .filter(Boolean) as Array<PastFilm & { _sort: string }>;
+
+      items.sort((a, b) => b._sort.localeCompare(a._sort));
+
+      if (canceled) return;
+      if (items.length) {
+        setPastFilms(items.map(({ _sort, ...film }) => film));
+      } else {
+        setFetchError("No videos found in the Basketball Game playlist.");
+      }
+    })()
       .catch((error) => {
         if (!canceled) {
           setFetchError(error.message || "Unable to load YouTube videos.");

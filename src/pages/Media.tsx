@@ -7,6 +7,7 @@ type VideoItem = {
   id: string;
   title: string;
   thumbnail: string;
+  publishedAt?: string;
 };
 
 type CommunityPost = {
@@ -18,6 +19,55 @@ type CommunityPost = {
 };
 
 type MediaTab = "games" | "photos" | "practice";
+
+// Map a YouTube playlistItems API response into our VideoItem shape, dropping
+// private/deleted entries (which have no usable thumbnail).
+function mapPlaylistItems(data: any): VideoItem[] {
+  return (data.items || [])
+    .map((item: any) => {
+      const snippet = item.snippet;
+      const videoId = snippet?.resourceId?.videoId;
+      const thumb =
+        snippet?.thumbnails?.maxres?.url ||
+        snippet?.thumbnails?.high?.url ||
+        snippet?.thumbnails?.medium?.url ||
+        snippet?.thumbnails?.default?.url ||
+        "";
+      if (!videoId || !thumb || snippet.title === "Private video" || snippet.title === "Deleted video") {
+        return null;
+      }
+      return {
+        id: videoId,
+        title: snippet.title,
+        thumbnail: thumb,
+        publishedAt: item.contentDetails?.videoPublishedAt || snippet.publishedAt || "",
+      } as VideoItem;
+    })
+    .filter(Boolean) as VideoItem[];
+}
+
+// Fetch every page of a playlist (the Practice tab wants all videos).
+async function fetchAllPlaylistItems(
+  apiKey: string,
+  playlistId: string
+): Promise<VideoItem[]> {
+  const all: VideoItem[] = [];
+  let pageToken = "";
+  do {
+    const url =
+      `https://www.googleapis.com/youtube/v3/playlistItems?key=${apiKey}` +
+      `&playlistId=${playlistId}&part=snippet,contentDetails&maxResults=50` +
+      (pageToken ? `&pageToken=${pageToken}` : "");
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error?.message || `YouTube API error: ${res.status}`);
+    }
+    all.push(...mapPlaylistItems(data));
+    pageToken = data.nextPageToken || "";
+  } while (pageToken);
+  return all;
+}
 
 const DEFAULT_VIDEO_ITEMS: VideoItem[] = [
   {
@@ -55,10 +105,17 @@ export default function Media() {
   const [postsError, setPostsError] = useState("");
   const [postsLoaded, setPostsLoaded] = useState(false);
 
+  const [practiceVideos, setPracticeVideos] = useState<VideoItem[]>([]);
+  const [practiceCurrent, setPracticeCurrent] = useState(0);
+  const [practiceLoading, setPracticeLoading] = useState(false);
+  const [practiceError, setPracticeError] = useState("");
+  const [practiceLoaded, setPracticeLoaded] = useState(false);
+
+  // Latest Games section: newest 4 videos from the "Basketball Game" playlist.
   useEffect(() => {
     const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY;
-    const channelId = import.meta.env.VITE_YOUTUBE_CHANNEL_ID;
-    if (!apiKey || !channelId) {
+    const playlistId = import.meta.env.VITE_YT_GAMES_PLAYLIST_ID;
+    if (!apiKey || !playlistId) {
       return;
     }
 
@@ -66,37 +123,22 @@ export default function Media() {
     setLoading(true);
     setFetchError("");
 
-    fetch(
-      `https://www.googleapis.com/youtube/v3/search?key=${apiKey}&channelId=${channelId}&part=snippet,id&order=date&maxResults=12&type=video`
-    )
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error(`YouTube API error: ${response.status}`);
-        }
-        const data = await response.json();
+    fetchAllPlaylistItems(apiKey, playlistId)
+      .then((items) => {
         if (canceled) return;
-        const items = data.items?.map((item: any) => {
-          const videoId = item.id?.videoId;
-          const snippet = item.snippet;
-          return videoId && snippet
-            ? {
-                id: videoId,
-                title: snippet.title,
-                thumbnail:
-                  snippet.thumbnails?.high?.url || snippet.thumbnails?.default?.url || "",
-              }
-            : null;
-        }).filter(Boolean) as VideoItem[];
-        if (items?.length) {
-          setVideos(items.slice(0, 4));
+        const latest = [...items]
+          .sort((a, b) => (b.publishedAt || "").localeCompare(a.publishedAt || ""))
+          .slice(0, 4);
+        if (latest.length) {
+          setVideos(latest);
           setCurrent(0);
         } else {
-          setFetchError("No videos found on the configured channel.");
+          setFetchError("No videos found in the Basketball Game playlist.");
         }
       })
       .catch((error) => {
         if (!canceled) {
-          setFetchError(error.message || "Unable to load latest videos.");
+          setFetchError(error.message || "Unable to load latest games.");
         }
       })
       .finally(() => {
@@ -107,6 +149,50 @@ export default function Media() {
       canceled = true;
     };
   }, []);
+
+  // Practice tab: all videos from the "Practice" playlist, loaded the first
+  // time the tab is opened.
+  useEffect(() => {
+    if (activeTab !== "practice" || practiceLoaded) return;
+
+    const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY;
+    const playlistId = import.meta.env.VITE_YT_PRACTICE_PLAYLIST_ID;
+    if (!apiKey || !playlistId) {
+      setPracticeError("The Practice playlist isn't configured yet.");
+      setPracticeLoaded(true);
+      return;
+    }
+
+    let canceled = false;
+    setPracticeLoading(true);
+    setPracticeError("");
+
+    fetchAllPlaylistItems(apiKey, playlistId)
+      .then((items) => {
+        if (canceled) return;
+        const ordered = [...items].sort((a, b) =>
+          (b.publishedAt || "").localeCompare(a.publishedAt || "")
+        );
+        setPracticeVideos(ordered);
+        setPracticeCurrent(0);
+        if (!ordered.length) {
+          setPracticeError("No videos found in the Practice playlist.");
+        }
+      })
+      .catch((error) => {
+        if (!canceled) setPracticeError(error.message || "Unable to load practice videos.");
+      })
+      .finally(() => {
+        if (!canceled) {
+          setPracticeLoading(false);
+          setPracticeLoaded(true);
+        }
+      });
+
+    return () => {
+      canceled = true;
+    };
+  }, [activeTab, practiceLoaded]);
 
   // Load the @SpartansAurora community "Posts" the first time the Photos tab
   // is opened. These come from our backend, which scrapes them server-side
@@ -337,9 +423,73 @@ export default function Media() {
         )}
 
         {activeTab === "practice" && (
-          <div className="md:col-span-12 glass-card p-12 text-center">
-            <h3 className="font-display text-3xl text-white uppercase italic">Practice Footage</h3>
-            <p className="font-sans text-[#ebbbb4]/70 mt-3">Members-only practice media is coming soon.</p>
+          <div className="md:col-span-12">
+            {practiceLoading && (
+              <p className="text-sm text-white/80 mb-6">Loading practice videos…</p>
+            )}
+
+            {!practiceLoading && practiceVideos.length === 0 && (
+              <div className="glass-card p-12 text-center">
+                <h3 className="font-display text-3xl text-white uppercase italic">Practice Footage</h3>
+                <p className="font-sans text-[#ebbbb4]/70 mt-3">
+                  {practiceError || "No practice videos to show yet."}
+                </p>
+              </div>
+            )}
+
+            {practiceVideos.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+                <div className="md:col-span-8 glass-card relative overflow-hidden">
+                  <div className="relative aspect-video overflow-hidden">
+                    <iframe
+                      key={practiceVideos[practiceCurrent]?.id}
+                      className="w-full h-full"
+                      src={`https://www.youtube.com/embed/${practiceVideos[practiceCurrent]?.id}`}
+                      frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    ></iframe>
+                  </div>
+                  <div className="p-6">
+                    <h3 className="font-display text-2xl text-white leading-tight">
+                      {practiceVideos[practiceCurrent]?.title}
+                    </h3>
+                  </div>
+                </div>
+
+                <div className="md:col-span-4 glass-card">
+                  <div className="p-6">
+                    <h3 className="font-sans font-bold text-[#ebbbb4]/70 uppercase text-[10px] mb-4 tracking-widest">
+                      Practice Library ({practiceVideos.length})
+                    </h3>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 max-h-[520px] overflow-y-auto pr-1">
+                      {practiceVideos.map((video, index) => (
+                        <button
+                          key={video.id}
+                          type="button"
+                          onClick={() => setPracticeCurrent(index)}
+                          className={`group overflow-hidden rounded-2xl border bg-white/5 text-left transition ${
+                            index === practiceCurrent ? "border-[#ffb4a8]" : "border-white/10 hover:border-[#ffb4a8]"
+                          }`}
+                        >
+                          <div className="relative overflow-hidden">
+                            <img
+                              className="w-full aspect-video object-cover transition duration-300 group-hover:scale-105"
+                              src={video.thumbnail}
+                              alt={video.title}
+                              loading="lazy"
+                            />
+                          </div>
+                          <div className="p-3">
+                            <h4 className="font-display text-xs text-white leading-tight line-clamp-2">{video.title}</h4>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
