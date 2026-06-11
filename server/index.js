@@ -16,11 +16,13 @@
  */
 import "dotenv/config";
 import express from "express";
+import cors from "cors";
 
 const app = express();
 app.use(express.json());
+app.use(cors());
 
-const PORT = process.env.AUTH_SERVER_PORT || 8787;
+const PORT = process.env.PORT || process.env.AUTH_SERVER_PORT || 8787;
 const TENANT = process.env.GRAPH_TENANT_ID;
 const CLIENT_ID = process.env.GRAPH_CLIENT_ID;
 const CLIENT_SECRET = process.env.GRAPH_CLIENT_SECRET;
