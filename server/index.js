@@ -160,6 +160,89 @@ app.post("/api/login", async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// YouTube community posts (the @SpartansAurora "Posts" tab).
+//
+// The YouTube Data API has no endpoint for community posts, and the posts page
+// can't be iframed (X-Frame-Options). So we fetch the page server-side (no CORS
+// there), pull the `ytInitialData` JSON the page bootstraps with, and extract
+// each post's caption + image thumbnails. Fragile by nature (depends on
+// YouTube's page shape), so it fails soft to an empty list.
+// ---------------------------------------------------------------------------
+const POSTS_URL =
+  process.env.YT_POSTS_URL || "https://www.youtube.com/@SpartansAurora/posts";
+let postsCache = { items: null, at: 0 };
+const POSTS_CACHE_MS = 10 * 60 * 1000;
+
+// Recursively collect every value stored under `key` anywhere in the tree.
+function collectByKey(node, key, acc = []) {
+  if (Array.isArray(node)) {
+    for (const v of node) collectByKey(v, key, acc);
+  } else if (node && typeof node === "object") {
+    for (const k of Object.keys(node)) {
+      if (k === key) acc.push(node[k]);
+      collectByKey(node[k], key, acc);
+    }
+  }
+  return acc;
+}
+
+function extractPost(post) {
+  const id = post.postId || "";
+  const text = (post.contentText?.runs || []).map((r) => r.text).join("");
+  const published = post.publishedTimeText?.runs?.[0]?.text || "";
+  const images = [];
+  if (post.backstageAttachment) {
+    for (const ir of collectByKey(post.backstageAttachment, "backstageImageRenderer")) {
+      const thumbs = ir.image?.thumbnails || [];
+      const best = thumbs[thumbs.length - 1];
+      if (best?.url) images.push(best.url);
+    }
+  }
+  const link = id ? `https://www.youtube.com/post/${id}` : POSTS_URL;
+  return { id, text, published, images, link };
+}
+
+async function loadCommunityPosts() {
+  if (postsCache.items && Date.now() - postsCache.at < POSTS_CACHE_MS) {
+    return postsCache.items;
+  }
+  const res = await fetch(`${POSTS_URL}?hl=en`, {
+    headers: {
+      // A desktop UA + consent cookie keeps YouTube from serving a consent
+      // interstitial (common from EU/datacenter IPs) instead of the page.
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+      "Accept-Language": "en-US,en;q=0.9",
+      Cookie: "SOCS=CAI; CONSENT=YES+1",
+    },
+  });
+  if (!res.ok) {
+    throw new Error(`YouTube posts fetch failed: ${res.status}`);
+  }
+  const html = await res.text();
+  const match = html.match(/ytInitialData\s*=\s*(\{.+?\})\s*;\s*<\/script>/s);
+  if (!match) {
+    throw new Error("Could not locate ytInitialData on the posts page.");
+  }
+  const data = JSON.parse(match[1]);
+  const items = collectByKey(data, "backstagePostRenderer")
+    .map(extractPost)
+    .filter((p) => p.images.length > 0);
+  postsCache = { items, at: Date.now() };
+  return items;
+}
+
+app.get("/api/community-posts", async (_req, res) => {
+  try {
+    const items = await loadCommunityPosts();
+    res.json({ items });
+  } catch (err) {
+    console.error("Community posts error:", err.message);
+    res.status(502).json({ error: "Unable to load community posts.", items: [] });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Auth server listening on http://localhost:${PORT}`);
 });

@@ -9,6 +9,16 @@ type VideoItem = {
   thumbnail: string;
 };
 
+type CommunityPost = {
+  id: string;
+  text: string;
+  published: string;
+  images: string[];
+  link: string;
+};
+
+type MediaTab = "games" | "photos" | "practice";
+
 const DEFAULT_VIDEO_ITEMS: VideoItem[] = [
   {
     id: "3r85axnXac4",
@@ -35,9 +45,15 @@ const DEFAULT_VIDEO_ITEMS: VideoItem[] = [
 export default function Media() {
   const { user } = useAuth();
   const [videos, setVideos] = useState<VideoItem[]>(DEFAULT_VIDEO_ITEMS);
+  const [activeTab, setActiveTab] = useState<MediaTab>("games");
   const [current, setCurrent] = useState(0);
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState("");
+
+  const [posts, setPosts] = useState<CommunityPost[]>([]);
+  const [postsLoading, setPostsLoading] = useState(false);
+  const [postsError, setPostsError] = useState("");
+  const [postsLoaded, setPostsLoaded] = useState(false);
 
   useEffect(() => {
     const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY;
@@ -51,7 +67,7 @@ export default function Media() {
     setFetchError("");
 
     fetch(
-      `https://www.googleapis.com/youtube/v3/search?key=${apiKey}&channelId=${channelId}&part=snippet,id&order=date&maxResults=4&type=video`
+      `https://www.googleapis.com/youtube/v3/search?key=${apiKey}&channelId=${channelId}&part=snippet,id&order=date&maxResults=12&type=video`
     )
       .then(async (response) => {
         if (!response.ok) {
@@ -70,10 +86,9 @@ export default function Media() {
                   snippet.thumbnails?.high?.url || snippet.thumbnails?.default?.url || "",
               }
             : null;
-        }).filter(Boolean);
-        const latest = items?.slice(0, 4);
-        if (latest?.length) {
-          setVideos(latest);
+        }).filter(Boolean) as VideoItem[];
+        if (items?.length) {
+          setVideos(items.slice(0, 4));
           setCurrent(0);
         } else {
           setFetchError("No videos found on the configured channel.");
@@ -93,6 +108,44 @@ export default function Media() {
     };
   }, []);
 
+  // Load the @SpartansAurora community "Posts" the first time the Photos tab
+  // is opened. These come from our backend, which scrapes them server-side
+  // (the YouTube Data API can't return community posts).
+  useEffect(() => {
+    if (activeTab !== "photos" || postsLoaded) return;
+
+    let canceled = false;
+    const apiBase = import.meta.env.VITE_API_URL || "";
+    setPostsLoading(true);
+    setPostsError("");
+
+    fetch(`${apiBase}/api/community-posts`)
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({}));
+        if (canceled) return;
+        if (!response.ok) {
+          throw new Error(data.error || `Request failed: ${response.status}`);
+        }
+        setPosts(Array.isArray(data.items) ? data.items : []);
+        if (!data.items?.length) {
+          setPostsError("No community posts with images were found.");
+        }
+      })
+      .catch((error) => {
+        if (!canceled) setPostsError(error.message || "Unable to load community posts.");
+      })
+      .finally(() => {
+        if (!canceled) {
+          setPostsLoading(false);
+          setPostsLoaded(true);
+        }
+      });
+
+    return () => {
+      canceled = true;
+    };
+  }, [activeTab, postsLoaded]);
+
   return (
     <motion.main 
       initial={{ opacity: 0 }}
@@ -109,10 +162,37 @@ export default function Media() {
       </section>
 
       <section className="mb-12 flex flex-wrap gap-4 items-center">
-        <button className="bg-[#ffb4a8] text-[#690100] font-sans font-bold text-sm tracking-widest px-6 py-3 uppercase">Latest Games</button>
-        <button className="bg-black border border-white/40 text-white font-sans font-bold text-sm tracking-widest px-6 py-3 uppercase hover:bg-white hover:text-black transition-all">Photos</button>
+        <button
+          onClick={() => setActiveTab("games")}
+          className={`font-sans font-bold text-sm tracking-widest px-6 py-3 uppercase transition-all ${
+            activeTab === "games"
+              ? "bg-[#ffb4a8] text-[#690100]"
+              : "bg-black border border-white/40 text-white hover:bg-white hover:text-black"
+          }`}
+        >
+          Latest Games
+        </button>
+        <button
+          onClick={() => setActiveTab("photos")}
+          className={`font-sans font-bold text-sm tracking-widest px-6 py-3 uppercase transition-all ${
+            activeTab === "photos"
+              ? "bg-[#ffb4a8] text-[#690100]"
+              : "bg-black border border-white/40 text-white hover:bg-white hover:text-black"
+          }`}
+        >
+          Photos
+        </button>
         {user && (
-          <button className="bg-black border border-white/40 text-white font-sans font-bold text-sm tracking-widest px-6 py-3 uppercase hover:bg-white hover:text-black transition-all">Practice</button>
+          <button
+            onClick={() => setActiveTab("practice")}
+            className={`font-sans font-bold text-sm tracking-widest px-6 py-3 uppercase transition-all ${
+              activeTab === "practice"
+                ? "bg-[#ffb4a8] text-[#690100]"
+                : "bg-black border border-white/40 text-white hover:bg-white hover:text-black"
+            }`}
+          >
+            Practice
+          </button>
         )}
         <div className="ml-auto flex items-center gap-2 text-[#ebbbb4]/70">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="21" x2="14" y1="4" y2="4"/><line x1="21" x2="10" y1="8" y2="8"/><line x1="21" x2="16" y1="12" y2="12"/><line x1="2" x2="3" y1="4" y2="4"/><line x1="2" x2="5" y1="8" y2="8"/><line x1="2" x2="8" y1="12" y2="12"/><line x1="2" x2="20" y1="16" y2="16"/><line x1="2" x2="20" y1="20" y2="20"/></svg>
@@ -128,6 +208,8 @@ export default function Media() {
       )}
 
       <section className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+        {activeTab === "games" && (
+        <>
         <div className="md:col-span-8 group relative overflow-hidden glass-card">
           <div className="relative aspect-video overflow-hidden">
             <iframe 
@@ -191,11 +273,80 @@ export default function Media() {
             </div>
           </div>
         </div>
+        </>
+        )}
+
+        {activeTab === "photos" && (
+          <div className="md:col-span-12">
+            {postsLoading && (
+              <p className="text-sm text-white/80 mb-6">Loading posts from YouTube…</p>
+            )}
+
+            {!postsLoading && posts.length === 0 && (
+              <div className="glass-card p-12 text-center">
+                <h3 className="font-display text-3xl text-white uppercase italic">Community Posts</h3>
+                <p className="font-sans text-[#ebbbb4]/70 mt-3">
+                  {postsError || "No posts to show right now."}
+                </p>
+                <a
+                  href="https://www.youtube.com/@SpartansAurora/posts"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-block mt-6 bg-[#ffb4a8] text-[#690100] font-sans font-bold text-xs tracking-widest px-8 py-3 uppercase hover:bg-white hover:text-black transition-all"
+                >
+                  Open Posts on YouTube
+                </a>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {posts.flatMap((post) =>
+                post.images.map((src, imageIndex) => (
+                  <a
+                    key={`${post.id}-${imageIndex}`}
+                    href={post.link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="group glass-card overflow-hidden block"
+                  >
+                    <div className="relative aspect-square overflow-hidden">
+                      <img
+                        className="w-full h-full object-cover transition duration-500 group-hover:scale-105"
+                        src={src}
+                        alt={post.text ? post.text.slice(0, 80) : "Spartans Aurora community post"}
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-80 group-hover:opacity-60 transition-opacity"></div>
+                      {(post.text || post.published) && (
+                        <div className="absolute bottom-3 left-3 right-3">
+                          {post.text && (
+                            <p className="font-sans text-xs text-white leading-snug line-clamp-2">{post.text}</p>
+                          )}
+                          {post.published && (
+                            <span className="font-sans text-[10px] uppercase tracking-widest text-[#ebbbb4]/70">{post.published}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </a>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "practice" && (
+          <div className="md:col-span-12 glass-card p-12 text-center">
+            <h3 className="font-display text-3xl text-white uppercase italic">Practice Footage</h3>
+            <p className="font-sans text-[#ebbbb4]/70 mt-3">Members-only practice media is coming soon.</p>
+          </div>
+        )}
 
         <div className="md:col-span-4 glass-card group relative">
           <div className="aspect-square relative overflow-hidden">
-            <img 
-              className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500" 
+            <img
+              className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500"
               src="https://lh3.googleusercontent.com/aida-public/AB6AXuBDNTT_F-kLJHZiOmhcDFFYxNqMXOstzz_0nw-IV41cBIlY9AaiwSzlLPNQKWJhADIpzM8fd4ngf0NWBZwQBixVEowYkkmgaAZm17rr8dYx40XDQeR8847BcexXQDmxvjpnXNwaPwYkY1Lqb6Cee5QqvF8nhkYx9CYLr594h91ciOr7BHx1214sZDWFCrwmDyNPUrWXhXkYBeGyQaTxYfQc0UfbGpiEm-RIieDwrOLaS0WbigEgLwGOos2n7810qiVZJkmJ6dNQjN8"
               alt="Hard work"
             />
