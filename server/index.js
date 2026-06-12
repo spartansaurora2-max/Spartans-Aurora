@@ -23,11 +23,19 @@ app.use(express.json());
 app.use(cors());
 
 const PORT = process.env.PORT || process.env.AUTH_SERVER_PORT || 8787;
+// Graph app for the login/Users workbook (lives in the Intuition tenant).
 const TENANT = process.env.GRAPH_TENANT_ID;
 const CLIENT_ID = process.env.GRAPH_CLIENT_ID;
 const CLIENT_SECRET = process.env.GRAPH_CLIENT_SECRET;
 const SHARE_URL = process.env.USERS_SHARE_URL;
 const SHEET = process.env.USERS_SHEET_NAME || "Users";
+
+// Separate Graph app for sending the Join-the-Ranks email. Lives in the
+// spartansaurora.ca tenant so mail is sent from a spartansaurora.ca mailbox.
+// Falls back to the login app above if these aren't set.
+const MAIL_TENANT = process.env.MAIL_GRAPH_TENANT_ID || TENANT;
+const MAIL_CLIENT_ID = process.env.MAIL_GRAPH_CLIENT_ID || CLIENT_ID;
+const MAIL_CLIENT_SECRET = process.env.MAIL_GRAPH_CLIENT_SECRET || CLIENT_SECRET;
 
 // SharePoint/OneDrive sharing URL -> Graph "shares" token.
 function encodeShareUrl(url) {
@@ -35,15 +43,16 @@ function encodeShareUrl(url) {
   return "u!" + b64.replace(/=+$/, "").replace(/\//g, "_").replace(/\+/g, "-");
 }
 
-async function getToken() {
+// Client-credentials token for a given app registration.
+async function getTokenFor(tenant, clientId, clientSecret) {
   const res = await fetch(
-    `https://login.microsoftonline.com/${TENANT}/oauth2/v2.0/token`,
+    `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`,
     {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
+        client_id: clientId,
+        client_secret: clientSecret,
         scope: "https://graph.microsoft.com/.default",
         grant_type: "client_credentials",
       }),
@@ -53,6 +62,16 @@ async function getToken() {
     throw new Error(`Token request failed: ${res.status} ${await res.text()}`);
   }
   return (await res.json()).access_token;
+}
+
+// Token for the login/Users-workbook app (Intuition tenant).
+function getToken() {
+  return getTokenFor(TENANT, CLIENT_ID, CLIENT_SECRET);
+}
+
+// Token for the mail-sending app (spartansaurora.ca tenant).
+function getMailToken() {
+  return getTokenFor(MAIL_TENANT, MAIL_CLIENT_ID, MAIL_CLIENT_SECRET);
 }
 
 async function graph(token, path) {
@@ -246,15 +265,14 @@ app.get("/api/community-posts", async (_req, res) => {
 // ---------------------------------------------------------------------------
 // "Join the Ranks" enquiry form -> email notification.
 //
-// Sends the submitted details to JOIN_NOTIFY_TO via Microsoft Graph, reusing
-// the same client-credentials app as the login proxy. That app needs the
-// application permission Mail.Send (with admin consent) and JOIN_MAIL_FROM must
-// be a licensed mailbox in the tenant.
+// Sends the submitted details to JOIN_NOTIFY_TO via Microsoft Graph, using the
+// dedicated mail app (MAIL_GRAPH_* in the spartansaurora.ca tenant). That app
+// needs the application permission Mail.Send (with admin consent) and
+// JOIN_MAIL_FROM must be a licensed mailbox in that same tenant.
 // ---------------------------------------------------------------------------
-// Recipient can be any address, including a different tenant (external email).
 const MAIL_TO = process.env.JOIN_NOTIFY_TO || "shyamalee@spartansaurora.ca";
-// Sender MUST be a mailbox in this Graph app's own tenant (Intuition).
-const MAIL_FROM = process.env.JOIN_MAIL_FROM || "ashen@intuitionconsultanciesinc.ca";
+// Sender MUST be a mailbox in the mail app's tenant (spartansaurora.ca).
+const MAIL_FROM = process.env.JOIN_MAIL_FROM || "shyamalee@spartansaurora.ca";
 
 // Escape user-supplied text before embedding it in the HTML email body.
 function escapeHtml(value) {
@@ -270,10 +288,10 @@ app.post("/api/join", async (req, res) => {
   if (!firstName || !lastName || !phone || !email) {
     return res.status(400).json({ error: "All fields are required." });
   }
-  if (!TENANT || !CLIENT_ID || !CLIENT_SECRET) {
+  if (!MAIL_TENANT || !MAIL_CLIENT_ID || !MAIL_CLIENT_SECRET) {
     return res.status(500).json({
       error:
-        "Mail server is not configured. Set GRAPH_TENANT_ID, GRAPH_CLIENT_ID and GRAPH_CLIENT_SECRET.",
+        "Mail server is not configured. Set MAIL_GRAPH_TENANT_ID, MAIL_GRAPH_CLIENT_ID and MAIL_GRAPH_CLIENT_SECRET.",
     });
   }
 
@@ -291,7 +309,7 @@ app.post("/api/join", async (req, res) => {
     `</div>`;
 
   try {
-    const token = await getToken();
+    const token = await getMailToken();
     const graphRes = await fetch(
       `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(MAIL_FROM)}/sendMail`,
       {
