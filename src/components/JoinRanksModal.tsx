@@ -1,26 +1,43 @@
 import { motion, AnimatePresence } from "motion/react";
 import { X } from "lucide-react";
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 
 interface JoinRanksModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export default function JoinRanksModal({ isOpen, onClose }: JoinRanksModalProps) {
-  const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    phone: "",
-    email: "",
-  });
+const EMPTY_FORM = { firstName: "", lastName: "", phone: "", email: "" };
 
-  const handleSubmit = (e: React.FormEvent) => {
+export default function JoinRanksModal({ isOpen, onClose }: JoinRanksModalProps) {
+  const [formData, setFormData] = useState(EMPTY_FORM);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    // In a real app, you'd send this to a backend or Firebase
-    console.log("Form submitted:", formData);
-    alert("YOUR INTEL HAS BEEN RECEIVED. PREPARE FOR CONTACT.");
-    onClose();
+    if (submitting) return;
+    setSubmitting(true);
+    setError("");
+    try {
+      const base = import.meta.env.VITE_API_URL ?? "";
+      const res = await fetch(`${base}/api/join`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "Unable to submit. Please try again.");
+      }
+      alert("YOUR INTEL HAS BEEN RECEIVED. PREPARE FOR CONTACT.");
+      setFormData(EMPTY_FORM);
+      onClose();
+    } catch (err: any) {
+      setError(err.message || "Unable to submit. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -112,11 +129,16 @@ export default function JoinRanksModal({ isOpen, onClose }: JoinRanksModalProps)
                 />
               </div>
 
+              {error && (
+                <p className="font-sans text-sm text-[#ff5540] font-bold">{error}</p>
+              )}
+
               <button
                 type="submit"
-                className="w-full mt-8 bg-[#ff5540] text-[#5c0000] font-sans font-bold text-sm tracking-widest py-4 uppercase shadow-[4px_4px_0px_0px_#ffffff] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_#ffffff] transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+                disabled={submitting}
+                className="w-full mt-8 bg-[#ff5540] text-[#5c0000] font-sans font-bold text-sm tracking-widest py-4 uppercase shadow-[4px_4px_0px_0px_#ffffff] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_#ffffff] transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0"
               >
-                ENLIST NOW
+                {submitting ? "ENLISTING..." : "ENLIST NOW"}
               </button>
             </form>
           </motion.div>

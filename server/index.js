@@ -243,6 +243,93 @@ app.get("/api/community-posts", async (_req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// "Join the Ranks" enquiry form -> email notification.
+//
+// Sends the submitted details to JOIN_NOTIFY_TO via Microsoft Graph, reusing
+// the same client-credentials app as the login proxy. That app needs the
+// application permission Mail.Send (with admin consent) and JOIN_MAIL_FROM must
+// be a licensed mailbox in the tenant.
+// ---------------------------------------------------------------------------
+const MAIL_TO = process.env.JOIN_NOTIFY_TO || "ashen@intuitionconsultanciesinc.ca";
+const MAIL_FROM = process.env.JOIN_MAIL_FROM || MAIL_TO;
+
+// Escape user-supplied text before embedding it in the HTML email body.
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+app.post("/api/join", async (req, res) => {
+  const { firstName, lastName, phone, email } = req.body || {};
+  if (!firstName || !lastName || !phone || !email) {
+    return res.status(400).json({ error: "All fields are required." });
+  }
+  if (!TENANT || !CLIENT_ID || !CLIENT_SECRET) {
+    return res.status(500).json({
+      error:
+        "Mail server is not configured. Set GRAPH_TENANT_ID, GRAPH_CLIENT_ID and GRAPH_CLIENT_SECRET.",
+    });
+  }
+
+  const fullName = `${firstName} ${lastName}`.trim();
+  const html =
+    `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#222">` +
+    `<h2 style="margin:0 0 12px">New "Join the Ranks" submission</h2>` +
+    `<table cellpadding="6" style="border-collapse:collapse">` +
+    `<tr><td style="font-weight:bold">First name</td><td>${escapeHtml(firstName)}</td></tr>` +
+    `<tr><td style="font-weight:bold">Last name</td><td>${escapeHtml(lastName)}</td></tr>` +
+    `<tr><td style="font-weight:bold">Telephone</td><td>${escapeHtml(phone)}</td></tr>` +
+    `<tr><td style="font-weight:bold">Email</td><td>${escapeHtml(email)}</td></tr>` +
+    `</table>` +
+    `<p style="color:#888;margin-top:16px">Submitted from the Spartans Aurora website.</p>` +
+    `</div>`;
+
+  try {
+    const token = await getToken();
+    const graphRes = await fetch(
+      `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(MAIL_FROM)}/sendMail`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: {
+            subject: `New Join the Ranks submission — ${fullName}`,
+            body: { contentType: "HTML", content: html },
+            toRecipients: [{ emailAddress: { address: MAIL_TO } }],
+            // Lets the recipient reply straight to the applicant.
+            replyTo: [{ emailAddress: { address: email } }],
+          },
+          saveToSentItems: true,
+        }),
+      }
+    );
+
+    if (!graphRes.ok) {
+      throw new Error(`Graph sendMail failed: ${graphRes.status} ${await graphRes.text()}`);
+    }
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("Join submit error:", err.message);
+    const msg = err.message || "";
+    if (msg.includes(" 403") || msg.includes("ErrorAccessDenied")) {
+      return res.status(502).json({
+        error:
+          "The mail app lacks permission. Grant the Azure app the application permission Mail.Send with admin consent.",
+      });
+    }
+    return res
+      .status(502)
+      .json({ error: "Unable to send your submission right now. Please try again later." });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Auth server listening on http://localhost:${PORT}`);
 });
