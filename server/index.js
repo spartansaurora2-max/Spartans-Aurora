@@ -251,8 +251,10 @@ app.get("/api/community-posts", async (_req, res) => {
 // application permission Mail.Send (with admin consent) and JOIN_MAIL_FROM must
 // be a licensed mailbox in the tenant.
 // ---------------------------------------------------------------------------
-const MAIL_TO = process.env.JOIN_NOTIFY_TO || "ashen@intuitionconsultanciesinc.ca";
-const MAIL_FROM = process.env.JOIN_MAIL_FROM || MAIL_TO;
+// Recipient can be any address, including a different tenant (external email).
+const MAIL_TO = process.env.JOIN_NOTIFY_TO || "shyamalee@spartansaurora.ca";
+// Sender MUST be a mailbox in this Graph app's own tenant (Intuition).
+const MAIL_FROM = process.env.JOIN_MAIL_FROM || "ashen@intuitionconsultanciesinc.ca";
 
 // Escape user-supplied text before embedding it in the HTML email body.
 function escapeHtml(value) {
