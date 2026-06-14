@@ -298,7 +298,7 @@ app.post("/api/join", async (req, res) => {
   const fullName = `${firstName} ${lastName}`.trim();
   const html =
     `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#222">` +
-    `<h2 style="margin:0 0 12px">New "Join the Ranks" submission</h2>` +
+    `<h2 style="margin:0 0 12px">New Member Details</h2>` +
     `<table cellpadding="6" style="border-collapse:collapse">` +
     `<tr><td style="font-weight:bold">First name</td><td>${escapeHtml(firstName)}</td></tr>` +
     `<tr><td style="font-weight:bold">Last name</td><td>${escapeHtml(lastName)}</td></tr>` +
@@ -320,7 +320,7 @@ app.post("/api/join", async (req, res) => {
         },
         body: JSON.stringify({
           message: {
-            subject: `New Join the Ranks submission — ${fullName}`,
+            subject: `New Member Join Request — ${fullName}`,
             body: { contentType: "HTML", content: html },
             toRecipients: [{ emailAddress: { address: MAIL_TO } }],
             // Lets the recipient reply straight to the applicant.
