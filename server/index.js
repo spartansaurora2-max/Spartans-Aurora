@@ -350,6 +350,90 @@ app.post("/api/join", async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Team schedule -> shyamalee@spartansaurora.ca calendar (next 30 days).
+//
+// Reads the calendar of CALENDAR_USER via Microsoft Graph using the dedicated
+// mail app (MAIL_GRAPH_* in the spartansaurora.ca tenant). That app needs the
+// application permission Calendars.Read (with admin consent). We ask Graph to
+// return times in Eastern time via the Prefer header so the client can show
+// them as-is.
+// ---------------------------------------------------------------------------
+const CALENDAR_USER =
+  process.env.CALENDAR_USER || process.env.JOIN_NOTIFY_TO || "shyamalee@spartansaurora.ca";
+const CALENDAR_TIMEZONE = process.env.CALENDAR_TIMEZONE || "Eastern Standard Time";
+
+app.get("/api/schedule", async (_req, res) => {
+  if (!MAIL_TENANT || !MAIL_CLIENT_ID || !MAIL_CLIENT_SECRET) {
+    return res.status(500).json({
+      error:
+        "Schedule server is not configured. Set MAIL_GRAPH_TENANT_ID, MAIL_GRAPH_CLIENT_ID and MAIL_GRAPH_CLIENT_SECRET.",
+      events: [],
+    });
+  }
+
+  const now = new Date();
+  const end = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+  const params = new URLSearchParams({
+    startDateTime: now.toISOString(),
+    endDateTime: end.toISOString(),
+    $select: "subject,start,end,location,isAllDay,bodyPreview,webLink",
+    $orderby: "start/dateTime",
+    $top: "100",
+  });
+
+  try {
+    const token = await getMailToken();
+    const graphRes = await fetch(
+      `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(
+        CALENDAR_USER
+      )}/calendarView?${params.toString()}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Prefer: `outlook.timezone="${CALENDAR_TIMEZONE}"`,
+        },
+      }
+    );
+    if (!graphRes.ok) {
+      throw new Error(
+        `Graph calendarView failed: ${graphRes.status} ${await graphRes.text()}`
+      );
+    }
+    const data = await graphRes.json();
+    const events = (data.value || []).map((e) => ({
+      subject: e.subject || "(No title)",
+      start: e.start?.dateTime || null,
+      end: e.end?.dateTime || null,
+      timeZone: e.start?.timeZone || CALENDAR_TIMEZONE,
+      location: e.location?.displayName || "",
+      isAllDay: !!e.isAllDay,
+      preview: e.bodyPreview || "",
+      link: e.webLink || "",
+    }));
+    return res.json({ events });
+  } catch (err) {
+    console.error("Schedule error:", err.message);
+    const msg = err.message || "";
+    if (msg.includes(" 403") || msg.includes("ErrorAccessDenied")) {
+      return res.status(502).json({
+        error:
+          "The app lacks permission to read the calendar. Grant the Azure app the application permission Calendars.Read with admin consent.",
+        events: [],
+      });
+    }
+    if (msg.includes("ErrorItemNotFound") || msg.includes(" 404")) {
+      return res.status(502).json({
+        error: "Calendar not found. Check CALENDAR_USER is a valid mailbox.",
+        events: [],
+      });
+    }
+    return res
+      .status(502)
+      .json({ error: "Unable to load the schedule right now.", events: [] });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Auth server listening on http://localhost:${PORT}`);
 });

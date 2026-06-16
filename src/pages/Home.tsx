@@ -1,9 +1,11 @@
 import { motion } from "motion/react";
 import { useState } from "react";
 import JoinRanksModal from "../components/JoinRanksModal";
+import ScheduleModal from "../components/ScheduleModal";
 
 export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isScheduleOpen, setIsScheduleOpen] = useState(false);
 
   return (
     <motion.main 
@@ -11,9 +13,13 @@ export default function Home() {
       animate={{ opacity: 1 }}
       className="pt-20"
     >
-      <JoinRanksModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
+      <JoinRanksModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      />
+      <ScheduleModal
+        isOpen={isScheduleOpen}
+        onClose={() => setIsScheduleOpen(false)}
       />
       {/* Hero Section */}
       <section className="relative min-h-[90vh] flex flex-col justify-center items-center overflow-hidden px-4">
@@ -64,12 +70,12 @@ export default function Home() {
             >
               JOIN THE RANKS
             </button>
-            <a 
-              href="mailto:shyamalee@spartansaurora.ca?subject=Schedule Inquiry"
+            <button
+              onClick={() => setIsScheduleOpen(true)}
               className="border-2 border-white text-white font-sans font-bold text-sm tracking-widest px-10 py-4 uppercase hover:bg-white hover:text-black transition-all flex items-center justify-center"
             >
               VIEW SCHEDULE
-            </a>
+            </button>
           </motion.div>
         </div>
       </section>
