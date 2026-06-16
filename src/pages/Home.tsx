@@ -148,9 +148,9 @@ export default function Home() {
                   <img 
                     className="w-full h-full object-cover grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all duration-500" 
                     src={
-                      item === 1 ? "https://lh3.googleusercontent.com/aida-public/AB6AXuAf6v24-AtH42fn60LmY0WkQPlFOH8dbE_edEHoxNkQYWGkUOVy-c33bScJRM8HW50-X-NwqkV2EFgEPnJjJJg1lTPgpw6HRciQ-iq72BJmsgakQeZbeQZfGJrc18pMIkzIIU_n79surzJzztHw2_lABP81Ffmo9YQN0HKCx2Dc-q9jG2uZcL7JfOQJcvGBFtzSF3mUP3MK4yod3vKx2fvUcKHqWMfMo7xz6a3D7BKfQAoWFS7LPt00Fyxxx3vecNvaJ-XRnO4ipPA" :
-                      item === 2 ? "https://lh3.googleusercontent.com/aida-public/AB6AXuBgSeMl79RxBhA86vZ4WLPEtWyM7frhS76l2fS6rDJHRBQU_zwFxNvtzsACV6_6y3b2U0xVgDPM-boevrgoN_TJpPdLNauG6Psr_7RMZkUxXFot3ptgOII28kfypaz7oJAPy_5DqImdwoo8-kjiy9v6cH4UcDLrqnVkbVu0GNLyM9KfoTnWl2wfw0V4p2KKliKfYbZEYThWzD3M5Zpw2Lv_omkzHSSpHcCYTspcLodHvxYFmaaYRN0F_9h3wm85z0Cxiz_oCb7QM" :
-                      "https://lh3.googleusercontent.com/aida-public/AB6AXuDre0FNoH3T2itt8Pcljd_xeMzi-yfYSe4qHPcNzq_AlTHuJzugsq7eU-Utv-CezdOOrV2D58K1AhsPViCG-HOMATV3C1QmpT8zCsm8uLHm9SH8jF2jL4_uMc63ycHdUSKeaDX0Zkh4unxKnGnxSRAQf05g_RGcmV_LfESMe3dnc2C0czB-JKL9LPo4_hBaQW-xSoQcpfvCqWBGrrn4EkXiwgb3oi4euwTkdQCwGzUhxzZCus29xpd-F40T2Pu-mJa4xmMJXbu-ubc"
+                      item === 1 ? "/images/intel-roster.png" :
+                      item === 2 ? "/images/intel-strategy.jpg" :
+                      "/images/intel-event.png"
                     }
                     alt="News"
                   />
