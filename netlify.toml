@@ -1,0 +1,10 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# SPA fallback: serve index.html for any path so react-router
+# can handle client-side routes like /media on direct load/refresh.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
