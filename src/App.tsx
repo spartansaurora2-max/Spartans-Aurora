@@ -7,6 +7,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
+import ProtectedRoute from "./components/ProtectedRoute";
 import Home from "./pages/Home";
 import Roster from "./pages/Roster";
 import Media from "./pages/Media";
@@ -22,7 +23,14 @@ export default function App() {
         <div className="flex-grow">
           <Routes>
             <Route path="/" element={<Home />} />
-            <Route path="/roster" element={<Roster />} />
+            <Route
+              path="/roster"
+              element={
+                <ProtectedRoute>
+                  <Roster />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/media" element={<Media />} />
             <Route path="/archive" element={<Archive />} />
             <Route path="/login" element={<Login />} />

@@ -11,7 +11,8 @@ export default function Navbar() {
 
   const navLinks = [
     { name: "HOME", path: "/" },
-    { name: "ROSTER", path: "/roster" },
+    // Roster is members-only — only surfaced once the user is logged in.
+    ...(user ? [{ name: "ROSTER", path: "/roster" }] : []),
     { name: "MEDIA", path: "/media" },
     { name: "ARCHIVE", path: "/archive" },
   ];

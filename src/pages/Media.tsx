@@ -546,6 +546,7 @@ export default function Media() {
         </div>
       </section>
 
+      {user && (
       <section className="mt-24 glass-card p-8 md:p-16 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-[#ffb4a8]/10 rounded-full blur-[100px] -mr-32 -mt-32"></div>
         <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
@@ -567,6 +568,7 @@ export default function Media() {
           </div>
         </div>
       </section>
+      )}
     </motion.main>
   );
 }

@@ -2,8 +2,10 @@ import { motion } from "motion/react";
 import { useState } from "react";
 import JoinRanksModal from "../components/JoinRanksModal";
 import ScheduleModal from "../components/ScheduleModal";
+import { useAuth } from "../context/AuthContext";
 
 export default function Home() {
+  const { user } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
 
@@ -70,12 +72,14 @@ export default function Home() {
             >
               JOIN THE RANKS
             </button>
-            <button
-              onClick={() => setIsScheduleOpen(true)}
-              className="border-2 border-white text-white font-sans font-bold text-sm tracking-widest px-10 py-4 uppercase hover:bg-white hover:text-black transition-all flex items-center justify-center"
-            >
-              VIEW SCHEDULE
-            </button>
+            {user && (
+              <button
+                onClick={() => setIsScheduleOpen(true)}
+                className="border-2 border-white text-white font-sans font-bold text-sm tracking-widest px-10 py-4 uppercase hover:bg-white hover:text-black transition-all flex items-center justify-center"
+              >
+                VIEW SCHEDULE
+              </button>
+            )}
           </motion.div>
         </div>
       </section>
